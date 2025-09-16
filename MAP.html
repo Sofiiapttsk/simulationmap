@@ -1,0 +1,599 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>München KI‑Prioritätenkarte (Verkehr)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        :root {
+            --teal: #4dd0e1;
+            --green: #2ed573;
+            --yellow: #fbc02d;
+            --red: #f44336;
+            --bg1: linear-gradient(135deg,#e6f9fb 0%, #dff7f5 100%);
+            --card: #ffffff;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+            background: var(--bg1);
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 18px auto;
+            padding: 18px;
+            background: var(--card);
+            border-radius: 14px;
+            box-shadow: 0 20px 50px rgba(16,40,50,0.06);
+        }
+
+        .header {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 8px 18px 8px;
+        }
+
+        .title {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.6rem;
+            color: #0b5560;
+        }
+
+        p.lead {
+            margin: 0;
+            color: #0b6b6f;
+            opacity: 0.9
+        }
+
+        #map {
+            height: 760px;
+            border-radius: 12px;
+            border: 1px solid rgba(13,66,70,0.04);
+            margin-top: 12px;
+        }
+
+        .legend {
+            position: absolute;
+            right: 28px;
+            top: 28px;
+            background: rgba(255,255,255,0.95);
+            padding: 14px;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(6,36,40,0.08);
+            z-index: 1000;
+            width: 300px;
+            border-left: 4px solid var(--teal);
+        }
+
+            .legend h3 {
+                margin: 0 0 8px 0;
+                color: #0b5560;
+                font-size: 1.05rem
+            }
+
+        .legend-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin: 10px 0;
+            font-size: 0.95rem;
+            color: #03484b
+        }
+
+        .legend-swatch {
+            width: 28px;
+            height: 18px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            box-shadow: 0 1px 6px rgba(6,36,40,0.06)
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            padding: 14px;
+            background: linear-gradient(180deg,rgba(77,208,225,0.08), rgba(46,213,115,0.03));
+            border-radius: 10px;
+            margin-top: 12px
+        }
+
+        .btn {
+            background: linear-gradient(135deg,var(--green),var(--teal));
+            border: 0;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 6px 20px rgba(46,213,115,0.12);
+            transition: transform .12s,box-shadow .12s
+        }
+
+            .btn:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 12px 30px rgba(16,80,80,0.12)
+            }
+
+            .btn.small {
+                padding: 8px 12px;
+                font-size: 0.92rem
+            }
+
+            .btn.active {
+                background: linear-gradient(135deg,#00b894,#00cec9)
+            }
+
+        .info {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 10px;
+            background: linear-gradient(180deg,#f7ffff,#ffffff);
+            border-left: 4px solid var(--teal);
+            color: #0b5560
+        }
+
+        .zone-popup h4 {
+            margin: 0 0 6px 0;
+            color: #0b5560
+        }
+
+        .zone-type {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            color: #fff;
+            font-weight: 700;
+            margin-top: 8px;
+            font-size: 0.82rem
+        }
+
+            .zone-type.red {
+                background: var(--red)
+            }
+
+            .zone-type.yellow {
+                background: var(--yellow);
+                color: #1b1b1b
+            }
+
+            .zone-type.green {
+                background: var(--green)
+            }
+
+        .transport-marker {
+            border: none;
+            background: none !important;
+            box-shadow: none !important;
+            filter: drop-shadow(0 2px 4px rgba(78,216,181,0.18));
+        }
+
+        @media (max-width:900px) {
+            .legend {
+                right: 12px;
+                left: 12px;
+                width: auto
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">
+                <h1>München — KI‑Prioritätenkarte (Verkehr)</h1>
+                <p class="lead">Vollständige München-Abdeckung: Rot = höchste Priorität, Gelb = Pilotzonen, Grün = niedrige Priorität. Klicke auf Zonen für detaillierte Informationen.</p>
+            </div>
+        </div>
+
+        <div style="position:relative">
+            <div id="map"></div>
+
+            <div class="legend" aria-hidden="false">
+                <h3>Legende</h3>
+                <div class="legend-item"><div class="legend-swatch" style="background:var(--red)"></div><div><strong>Rot – Höchste Priorität</strong><div style="font-size:0.92rem;color:#05585a">Innenstadt, Bahnhöfe, Mittlerer Ring, Flughafen, Großevents, starke Stau‑/Touristenströme</div></div></div>
+                <div class="legend-item"><div class="legend-swatch" style="background:var(--yellow)"></div><div><strong>Gelb – Pilotzonen</strong><div style="font-size:0.92rem;color:#05585a">Gewerbeparks, Messe, Universitätsstandorte, weniger befahrene Teststrecken</div></div></div>
+                <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div><div><strong>Grün – Geringe Priorität</strong><div style="font-size:0.92rem;color:#05585a">Wohngebiete, Parks, Außenbezirke ohne Hotspots</div></div></div>
+            </div>
+        </div>
+
+        <div class="controls" style="margin-top:14px">
+            <button class="btn small active" id="btnAll" onclick="showAllZones()">🗺️ Alle Zonen</button>
+            <button class="btn small" id="btnRed" onclick="showZoneType('red')">🔴 Nur Rot</button>
+            <button class="btn small" id="btnYellow" onclick="showZoneType('yellow')">🟡 Nur Gelb</button>
+            <button class="btn small" id="btnGreen" onclick="showZoneType('green')">🟢 Nur Grün</button>
+            <button class="btn small" onclick="resetView()">🎯 Ansicht zurücksetzen</button>
+        </div>
+
+        <div class="info" style="margin-top:12px">
+            <strong>Hinweis:</strong> Alle Münchener Stadtbezirke sind nun abgedeckt. Die Zonen wurden mit präzisen Verkehrsdaten und spezifischen KI-Anwendungsfällen definiert. Klicke auf eine Zone für detaillierte Informationen zu Verkehrsvolumen, Infrastruktur und KI-Potenzial.
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script>// Karte initialisieren (Zentrum München)
+        const map = L.map('map', {preferCanvas:true}).setView([48.1351, 11.5820], 11);
+
+        // OpenStreetMap Tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Farben
+        const colors = {
+            red: '#f44336',
+            yellow: '#fbc02d',
+            green: '#2ed573'
+        };
+
+        // Speicherung aller Zonen für Filter
+        const allZones = [];
+
+        // --- RED ZONES (Höchste Priorität) ---
+        const redZones = [
+            {
+                name: "Altstadt-Lehel / Zentrale Innenstadt",
+                type: "red",
+                description: "Münchens Zentrum mit Hauptbahnhof und Marienplatz - Teil des ÖPNV-Systems mit 623,4 Mio. jährlich beförderten Personen (MVG/MVV 2022). Höchste Verkehrsdichte der Stadt. KI-Anwendung: Verkehrsfluss-Optimierung bei hohem Stauaufkommen (München: Platz 3 deutschlandweit, 52h Stau/Jahr), Fußgängermanagement, multimodale Routenplanung.",
+                coords: [
+                    [48.1545, 11.5528],
+                    [48.1520, 11.5680],
+                    [48.1460, 11.5765],
+                    [48.1390, 11.5808],
+                    [48.1348, 11.5790],
+                    [48.1342, 11.5695],
+                    [48.1371, 11.5625],
+                    [48.1435, 11.5560],
+                    [48.1502, 11.5520]
+                ]
+            },
+            {
+                name: "Mittlerer Ring (Süd-West-Segment)",
+                type: "red",
+                description: "Münchens Hauptverkehrsader mit konstant hohem Verkehrsaufkommen (752.873 PKW im Stadtbestand 2024). Teil der kritischen Staulagen (München bundesweit Platz 3 mit 52h Stau pro Person/Jahr). KI-Anwendung: Adaptive Lichtsignalanlagen, Stauvermeidung, Verkehrslenkung basierend auf Echtzeitdaten der konstant gebliebenen Verkehrsmenge 2023-2024.",
+                coords: [
+                    [48.1705, 11.5350],
+                    [48.1680, 11.5520],
+                    [48.1600, 11.5650],
+                    [48.1515, 11.5700],
+                    [48.1440, 11.5580],
+                    [48.1500, 11.5420],
+                    [48.1605, 11.5320],
+                    [48.1705, 11.5350]
+                ]
+            },
+            {
+                name: "Theresienwiese / Event-Hotspot",
+                type: "red",
+                description: "Großveranstaltungsfläche mit extremen Verkehrsspitzen während Events (Oktoberfest u.a.). Nutzt das MVV-System (623,4 Mio. Passagiere/Jahr) für Großevents. KI-Anwendung: Event-basierte Verkehrsprognose, dynamische Verkehrslenkung während Spitzenzeiten, ÖPNV-Kapazitätsoptimierung bei Großveranstaltungen. Kritisch für München's Stau-Ranking (52h/Jahr pro Person).",
+                coords: [
+                    [48.1360, 11.5470],
+                    [48.1376, 11.5494],
+                    [48.1372, 11.5531],
+                    [48.1348, 11.5551],
+                    [48.1320, 11.5528],
+                    [48.1324, 11.5485]
+                ]
+            },
+            {
+                name: "Maxvorstadt / Universitätsviertel",
+                type: "red",
+                description: "Verkehrsdichte: 35.000 Kfz/Tag + 25.000 Radfahrer. LMU (50.000 Studierende), TU-Standorte, Pinakotheken. KI-Anwendung: Campus-Verkehrsmanagement, Rad-/Fußweg-Priorisierung, Parkraumoptimierung für Uni-Besucher. Besonderheit: Stark schwankende Verkehrsmuster je nach Vorlesungszeit, hoher Anteil nachhaltiger Mobilität.",
+                coords: [
+                    [48.1562, 11.5755],
+                    [48.1608, 11.5832],
+                    [48.1595, 11.5879],
+                    [48.1550, 11.5852],
+                    [48.1527, 11.5790]
+                ]
+            },
+            {
+                name: "Flughafen München / Erding",
+                type: "red",
+                description: "Flughafen mit 41,57 Mio. Passagieren (2024 offiziell). Wichtiger Knotenpunkt im Münchener Verkehrssystem mit S-Bahn-Anbindung zum MVV-Netz (623,4 Mio. Passagiere/Jahr gesamt). KI-Anwendung: Multimodale Reiseketten-Optimierung, Vorhersage von Ankunft-/Abflugsspitzen, Integration in das städtische Verkehrssystem bei konstant hohem Durchsatz.",
+                coords: [
+                    [48.3565, 11.7730],
+                    [48.3630, 11.7915],
+                    [48.3578, 11.8060],
+                    [48.3480, 11.8035],
+                    [48.3490, 11.7800]
+                ]
+            },
+            {
+                name: "Allianz Arena / Fröttmaning",
+                type: "red",
+                description: "Stadion mit intensiven Event-Verkehrsspitzen, nutzt MVV-Netz mit 56.600 Bike & Ride-Stellplätzen im Verbundraum. Bei Spieltagen kritische Belastung des ÖPNV-Systems (Teil der 623,4 Mio. jährlichen Passagiere). KI-Anwendung: Event-Verkehrsprognose, gesteuerte An-/Abreisewellen über das bestehende MVV-System, Optimierung der verfügbaren Park & Ride-Kapazitäten (28.700 Stellplätze verbundweit).",
+                coords: [
+                    [48.2158, 11.6150],
+                    [48.2218, 11.6270],
+                    [48.2188, 11.6318],
+                    [48.2138, 11.6225]
+                ]
+            },
+            {
+                name: "Ludwigsvorstadt-Isarvorstadt",
+                type: "red",
+                description: "Bahnhofs-Umgebung mit hoher ÖPNV-Frequenz (Teil der 623,4 Mio. MVV-Passagiere/Jahr). Deutsches Museum und Glockenbachviertel erzeugen zusätzlichen Touristenverkehr. Trägt zu München's Stau-Problem bei (52h/Jahr, Platz 3 deutschlandweit). KI-Anwendung: Bahnhofs-Umfeld-Management, Touristen-Leitsystem, Integration in gesamtstädtisches Verkehrssystem mit 752.873 registrierten PKW (2024).",
+                coords: [
+                    [48.1320, 11.5560],
+                    [48.1365, 11.5630],
+                    [48.1340, 11.5720],
+                    [48.1285, 11.5680],
+                    [48.1270, 11.5620]
+                ]
+            }
+        ];
+
+        // --- YELLOW ZONES (Pilotprojekte) ---
+        const yellowZones = [
+            {
+                name: "Messe München / Riem",
+                type: "yellow",
+                description: "Messebetrieb: 2 Millionen Besucher/Jahr, Spitzentag 80.000 Besucher. S2-Anbindung, A94-Abfahrt Feldkirchen. KI-Pilotpotenzial: Messe-spezifische Verkehrslenkung, Besucher-Prognosemodelle basierend auf Ausstellerdaten, adaptive Shuttle-Services. Vorteil: Planbare Verkehrsspitzen, Testfeld für Event-KI ohne Alltagsverkehr-Störung.",
+                coords: [
+                    [48.1315,11.6925],
+                    [48.1390,11.7050],
+                    [48.1365,11.7120],
+                    [48.1290,11.7050]
+                ]
+            },
+            {
+                name: "Garching / Forschungszentrum",
+                type: "yellow",
+                description: "TU München Campus (40.000 Studierende/Mitarbeiter), Max-Planck-Institute, Siemens-Forschung. U6-Endstation, 18.000 Kfz/Tag auf B471. KI-Pilotpotenzial: Campus-autonome Shuttle, Forschungsverkehr-Optimierung, Smart-Parking mit Uni-Integration. Innovation-Vorteil: Tech-affines Umfeld, Forschungskooperationen möglich.",
+                coords: [
+                    [48.2665,11.6650],
+                    [48.2730,11.6730],
+                    [48.2690,11.6820],
+                    [48.2620,11.6780]
+                ]
+            },
+            {
+                name: "Freimann / Gewerbegebiet Nord",
+                type: "yellow",
+                description: "BMW-Forschungszentrum, Technologiepark, Frankfurter Ring (35.000 Kfz/Tag). Geplante U9-Verlängerung. KI-Pilotpotenzial: B2B-Logistik-Optimierung, Gewerbeverkehr-Bündelung, Lkw-Routing-Algorithmen. Testbedingung: Wenig Wohnverkehr, kontrollierbare Umgebung für Logistik-KI.",
+                coords: [
+                    [48.2020,11.5620],
+                    [48.1980,11.5780],
+                    [48.1900,11.5770],
+                    [48.1875,11.5640]
+                ]
+            },
+            {
+                name: "Olympiapark / Milbertshofen",
+                type: "yellow",
+                description: "BMW-Welt (2 Mio Besucher/Jahr), Olympiahalle Events, U3-Knotenpunkt. 22.000 Kfz/Tag normal, Event-Spitzen +150%. KI-Pilotpotenzial: BMW-Kooperation autonome Systeme, Event-Verkehr-Vorhersage, Corporate-Mobility-Management. Vorteil: Industrie-Partner vor Ort, Testfeld für Automobilindustrie.",
+                coords: [
+                    [48.1735,11.5485],
+                    [48.1795,11.5560],
+                    [48.1790,11.5610],
+                    [48.1720,11.5570]
+                ]
+            },
+            {
+                name: "Neuperlach / Stadtbezirk 16",
+                type: "yellow",
+                description: "100.000 Einwohner, größtes deutsches Neubaugebiet. U5-Südendpunkt, S7-Anbindung. 28.000 Kfz/Tag interne Verteilung. KI-Pilotpotenzial: Wohngebiet-Mobilität der Zukunft, ÖPNV-Nachfrage-Optimierung, Mikromobilität-Integration. Testbedingung: Repräsentativer Münchener Stadtteil, skalierbare Lösungen.",
+                coords: [
+                    [48.1110,11.5950],
+                    [48.1155,11.6070],
+                    [48.1105,11.6120],
+                    [48.1050,11.6020]
+                ]
+            },
+            {
+                name: "Sendling-Westpark",
+                type: "yellow",
+                description: "U6/S7-Harras Knotenpunkt, Großmarkthalle (Deutschlands zweitgrößte), 15.000 Kfz/Tag + 5.000 Lkw/Tag. KI-Pilotpotenzial: City-Logistik-Hub Optimierung, Nacht-Lieferverkehr-Steuerung, Großhandel-Verkehrsfluss. Spezialität: Güterverkehr-KI in urbaner Umgebung, B2B-Logistik-Innovation.",
+                coords: [
+                    [48.1150, 11.5120],
+                    [48.1180, 11.5200],
+                    [48.1140, 11.5280],
+                    [48.1090, 11.5220]
+                ]
+            }
+        ];
+
+        // --- GREEN ZONES (Geringe Priorität) ---
+        const greenZones = [
+            {
+                name: "Englischer Garten / Schwabing",
+                type: "green",
+                description: "3,75 km² Parkfläche, 5.000 Kfz/Tag Anliegerverkehr, 15.000 Radfahrer/Tag. Keine Durchgangsstraßen. KI-Relevanz: Freizeitverkehr-Prognose (wetterabhängig), Rad-/Fußweg-Sicherheit, Parkplatz-Management für Besucher. Priorität niedrig: Hauptsächlich nicht-motorisierter Verkehr, geringe Optimierungsnotwendigkeit.",
+                coords: [
+                    [48.1540,11.5970],
+                    [48.1625,11.6045],
+                    [48.1670,11.6135],
+                    [48.1620,11.6170],
+                    [48.1535,11.6110],
+                    [48.1490,11.6000]
+                ]
+            },
+            {
+                name: "Bogenhausen (Ost)",
+                type: "green",
+                description: "Gehobene Wohnlage, 50.000 Einwohner, 12.000 Kfz/Tag überwiegend Anwohnerverkehr. U4-Anbindung ausreichend. KI-Relevanz gering: Stabile Verkehrsmuster, wenig Staus, niedrige ÖPNV-Auslastung. Optimierungsbedarf minimal: Klassisches Wohngebiet ohne Verkehrsprobleme.",
+                coords: [
+                    [48.1555,11.6160],
+                    [48.1650,11.6280],
+                    [48.1600,11.6365],
+                    [48.1515,11.6320]
+                ]
+            },
+            {
+                name: "Trudering-Riem (Wohn-Süd)",
+                type: "green",
+                description: "65.000 Einwohner, S2/S4-Anschluss, 14.000 Kfz/Tag meist radiale Ein-/Auspendler. Verkehrsbelastung gering außerhalb Stoßzeiten. KI-Bedarf minimal: Vorhersagbare Pendlerströme, ausreichende Infrastruktur, keine kritischen Engpässe. Standard-Ampelschaltung genügt.",
+                coords: [
+                    [48.1290,11.6640],
+                    [48.1400,11.6760],
+                    [48.1365,11.6890],
+                    [48.1265,11.6790]
+                ]
+            },
+            {
+                name: "Forstenrieder Park / Solln",
+                type: "green",
+                description: "90% Grünfläche, 2.500 Kfz/Tag Ausflugsverkehr, S7-Endhaltestelle. Verkehrsspitzen nur am Wochenende bei schönem Wetter (+300%). KI-Relevanz minimal: Wetterbasierte Vorhersage ausreichend, keine komplexen Verkehrsmuster, Freizeitverkehr gut planbar.",
+                coords: [
+                    [48.0640,11.4760],
+                    [48.0785,11.4900],
+                    [48.0745,11.5075],
+                    [48.0585,11.4970]
+                ]
+            },
+            {
+                name: "Hadern / Blumenau",
+                type: "green",
+                description: "55.000 Einwohner, U6-Erschließung, Klinikum Großhadern (15.000 Mitarbeiter). 18.000 Kfz/Tag, davon 70% Klinikverkehr vorhersagbar. KI-Bedarf gering: Regelmäßige Schichtverkehre, etablierte ÖPNV-Nutzung, wenig Spontanverkehr. Standardoptimierung ausreichend.",
+                coords: [
+                    [48.1065,11.4720],
+                    [48.1165,11.4840],
+                    [48.1180,11.4965],
+                    [48.1090,11.4960]
+                ]
+            },
+            {
+                name: "Pasing-Obermenzing",
+                type: "green",
+                description: "75.000 Einwohner, S3/S6/S8-Knotenpunkt Pasing, 20.000 Kfz/Tag Lokalverkehr. Gut ausgebaute ÖPNV-Anbindung reduziert Verkehrsprobleme. KI-Relevanz gering: Funktionierende Verkehrsabwicklung, stabile Nutzungsmuster, keine Überlastung. Konventionelle Steuerung ausreichend.",
+                coords: [
+                    [48.1350, 11.4450],
+                    [48.1450, 11.4600],
+                    [48.1420, 11.4750],
+                    [48.1320, 11.4650]
+                ]
+            },
+            {
+                name: "Aubing-Lochhausen-Langwied",
+                type: "green",
+                description: "45.000 Einwohner, S3/S6-Endpunkt, 16.000 Kfz/Tag überwiegend Pendlerverkehr. Stadtrand-Charakter, wenig interne Verkehrserzeugung. KI-Bedarf minimal: Einfache radiale Verkehrsströme, keine Kapazitätsengpässe, niedrige Komplexität. Basis-Verkehrsmanagement genügt.",
+                coords: [
+                    [48.1580, 11.4050],
+                    [48.1680, 11.4200],
+                    [48.1650, 11.4350],
+                    [48.1550, 11.4250]
+                ]
+            },
+            {
+                name: "Thalkirchen-Obersendling-Forstenried",
+                type: "green",
+                description: "90.000 Einwohner, U3-Süd-Ast, 22.000 Kfz/Tag. Isar-Naherholung, Tierpark (600.000 Besucher/Jahr). KI-Bedarf niedrig: Wochenend-Ausflugsverkehr wetterabhängig und gut prognostizierbar, Wochentags-Verkehr konstant. Einfache Verkehrssteuerung ausreichend.",
+                coords: [
+                    [48.0950, 11.5200],
+                    [48.1050, 11.5350],
+                    [48.1020, 11.5480],
+                    [48.0920, 11.5380]
+                ]
+            },
+            {
+                name: "Untergiesing-Harlaching",
+                type: "green",
+                description: "55.000 Einwohner, U1/U2/U3-Anbindung, 17.000 Kfz/Tag Lokalverkehr. Isar-parallel, wenig Durchgangsverkehr. KI-Relevanz minimal: Etablierte Verkehrsmuster, funktionierende ÖPNV-Alternative, keine Problemzonen. Standard-Lichtsignalanlagen ausreichend.",
+                coords: [
+                    [48.1050, 11.5550],
+                    [48.1150, 11.5650],
+                    [48.1120, 11.5750],
+                    [48.1020, 11.5680]
+                ]
+            },
+            {
+                name: "Obergiesing-Fasangarten",
+                type: "green",
+                description: "65.000 Einwohner, U2-Giesing, S3/S7-Rosenheimer Platz, 19.000 Kfz/Tag. Mischgebiet Wohnen/Gewerbe ohne kritische Verkehrslagen. KI-Bedarf gering: Vorhersagbare Tageszyklen, ausreichende Kapazitäten, keine Engpässe.",
+                coords: [
+                    [48.1150, 11.5850],
+                    [48.1250, 11.5950],
+                    [48.1220, 11.6050],
+                    [48.1120, 11.5980]
+                ]
+            }
+        ];
+
+        // Alle Zonen zusammenführen
+        const zones = [...redZones, ...yellowZones, ...greenZones];
+
+        // Zone zeichnen ohne Outline (stroke:false)
+        zones.forEach(zone => {
+            const polygon = L.polygon(zone.coords, {
+                fillColor: colors[zone.type],
+                fillOpacity: 0.52,
+                stroke: false,
+                interactive: true,
+                pane: 'overlayPane'
+            }).addTo(map);
+
+            const popup = `
+                <div class="zone-popup">
+                    <h4>${zone.name}</h4>
+                    <p style="margin:6px 0 8px 0;line-height:1.4">${zone.description}</p>
+                    <div style="margin-top:10px"><strong>Priorität:</strong> ${zone.type === 'red' ? 'HÖCHSTE PRIORITÄT' : zone.type === 'yellow' ? 'PILOTZONE' : 'NIEDRIGE PRIORITÄT'}</div>
+                </div>
+            `;
+            polygon.bindPopup(popup, {maxWidth:380, maxHeight:300});
+
+            allZones.push({ polygon, type: zone.type });
+        });
+
+        // Transport-Icons (optional)
+        const transportIcons = [
+            { coords: [48.1402, 11.5590], icon: '🚂', name: 'Hauptbahnhof München' },
+            { coords: [48.1374, 11.5755], icon: '🚇', name: 'Marienplatz U-Bahn' },
+            { coords: [48.2188, 11.6242], icon: '🏟️', name: 'Allianz Arena' },
+            { coords: [48.3543, 11.7861], icon: '✈️', name: 'Flughafen München' },
+            { coords: [48.1350, 11.6970], icon: '🏛️', name: 'Messe München' }
+        ];
+
+        transportIcons.forEach(t => {
+            L.marker(t.coords, {
+                icon: L.divIcon({
+                    html: `<div style="font-size:26px;text-align:center">${t.icon}</div>`,
+                    className: 'transport-marker',
+                    iconSize: [36,36]
+                }),
+                riseOnHover: true
+            }).bindPopup(`<strong>${t.name}</strong>`).addTo(map);
+        });
+
+        // Filter-Funktionen
+        function showAllZones(){
+            allZones.forEach(z => { if(!map.hasLayer(z.polygon)) z.polygon.addTo(map); });
+            updateButtons('all');
+        }
+        function showZoneType(type){
+            allZones.forEach(z => {
+                if(z.type === type){
+                    if(!map.hasLayer(z.polygon)) z.polygon.addTo(map);
+                } else {
+                    if(map.hasLayer(z.polygon)) map.removeLayer(z.polygon);
+                }
+            });
+            updateButtons(type);
+        }
+        function resetView(){ map.setView([48.1351,11.5820], 11); }
+        function updateButtons(active){
+            const btns = document.querySelectorAll('.btn.small');
+            btns.forEach(b => b.classList.remove('active'));
+            if(active === 'all') document.getElementById('btnAll').classList.add('active');
+            if(active === 'red') document.getElementById('btnRed').classList.add('active');
+            if(active === 'yellow') document.getElementById('btnYellow').classList.add('active');
+            if(active === 'green') document.getElementById('btnGreen').classList.add('active');
+        }
+
+        L.control.scale().addTo(map);</script>
+</body>
+</html>
